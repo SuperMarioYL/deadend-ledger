@@ -1,0 +1,330 @@
+{
+  "schema": 3,
+  "name": "deadend-ledger",
+  "github": "https://github.com/SuperMarioYL/deadend-ledger",
+  "host": "deadend-ledger.lei6393.com",
+  "palette": "auto",
+  "lang": {
+    "primary": "zh",
+    "toggle": true
+  },
+  "meta": {
+    "visual_profile": "neon-particle",
+    "content_version": "0.1.0",
+    "demo_source": "docs/demo-results.json",
+    "source_version": "v0.1.0"
+  },
+  "hero": {
+    "eyebrow": {
+      "zh": "失败方案台账 · 本地运行 · 一个 JSONL 文件",
+      "en": "A tombstone ledger for failed approaches · local-only · one JSONL file"
+    },
+    "headline": {
+      "zh": "别让 agent 把失败的路再走一遍。",
+      "en": "Stop agents from re-walking failed approaches."
+    },
+    "sub": {
+      "zh": "deadend-ledger 把失败尝试写成带失败测试证据的墓碑,在相似任务开始时自动注入,让编程智能体第一眼就知道哪些路走不通。",
+      "en": "deadend-ledger records failed attempts as tombstones with failing-test evidence and injects them when similar work starts, so the coding agent sees the dead end before it starts walking."
+    },
+    "href": "#quickstart",
+    "command": "go install github.com/SuperMarioYL/deadend-ledger@latest",
+    "cta": {
+      "zh": "十分钟上手",
+      "en": "Start in ten minutes"
+    },
+    "ctaGithub": {
+      "zh": "查看源码",
+      "en": "View source"
+    }
+  },
+  "scene": {
+    "kind": "neon-graph",
+    "caption": {
+      "zh": "图示展示组件关系;实际输出见下方示例。",
+      "en": "An illustrative component scene; recorded output appears below."
+    },
+    "fallback": "/assets/presentation/scene-dark.svg",
+    "fallbackLight": "/assets/presentation/scene-light.svg"
+  },
+  "advantages": [
+    {
+      "title": {
+        "zh": "证据,不是感觉",
+        "en": "Evidence, not vibes"
+      },
+      "body": {
+        "zh": "每枚墓碑必须带可机器验证的证据:失败测试命令、错误定位或构建日志,4 个字符以上的定位符随时可以重跑。",
+        "en": "Every tombstone carries machine-checkable evidence: a failing test command, an error span or a build log you can re-run at any time."
+      }
+    },
+    {
+      "title": {
+        "zh": "确定注入,零依赖",
+        "en": "Deterministic injection, zero dependencies"
+      },
+      "body": {
+        "zh": "会话开始时本地做 token 加权匹配,常量阈值;无 embedding、无网络、无守护进程,块长度硬上限,永远不会淹没上下文。",
+        "en": "Session-start scoring is local token-overlap matching with a constant threshold: no embeddings, no network, no daemon, and a hard cap so injection can never flood context."
+      }
+    },
+    {
+      "title": {
+        "zh": "只记负面结果",
+        "en": "Negative results only"
+      },
+      "body": {
+        "zh": "台账只收失败方案:没有事实、偏好和散文记忆。墓碑可以设置过期与复活条件,过期即停止注入。",
+        "en": "The ledger holds failed approaches only — no facts, no preferences, no prose memory. Tombstones can expire and name a revive condition; past-due ones stop injecting."
+      }
+    }
+  ],
+  "story": {
+    "intro": {
+      "title": {
+        "zh": "解决什么问题",
+        "en": "The task it solves"
+      },
+      "body": {
+        "zh": "在同一仓库反复开 agent 会话时,失败方案只存在于开发者的记忆里;换一个会话,agent 会把它当作新想法再走一遍。散文式记忆能复述失败,却不能在规划时排除它。deadend-ledger 引入墓碑这个记录类型:方案、作用域、机器证据、复活条件,一条 JSON 行一枚。",
+        "en": "Across repeated agent sessions on one repo, failed approaches live only in the developer's memory; a fresh session treats them as new ideas. Prose memory can describe a failure but cannot exclude the option at planning time. deadend-ledger adds the missing record type — the tombstone: approach, scope, machine evidence and a revive condition, one JSON line each."
+      }
+    },
+    "sections": [
+      {
+        "title": {
+          "zh": "记录:六十秒写成一枚墓碑",
+          "en": "Record: a tombstone in sixty seconds"
+        },
+        "body": {
+          "zh": "deadend record 接受完整 flags,也可以交互式提问;scope 默认取本仓库改动的文件,证据摘录自动截到 400 字符,每次写入都跑完整 schema 校验。",
+          "en": "deadend record takes full flags or asks interactively; scope defaults to the files changed in this repo, the excerpt is capped at 400 chars, and every append passes full schema validation."
+        },
+        "image": {
+          "light": "/assets/presentation/process-light.svg",
+          "dark": "/assets/presentation/process-dark.svg",
+          "alt": {
+            "zh": "记录、校验、会话开始时评分、命中注入或保持沉默的四个阶段。",
+            "en": "Four stages: record, validate, score at session start, inject on match or stay silent."
+          },
+          "mobile": {
+            "light": "/assets/presentation/process-mobile-light.svg",
+            "dark": "/assets/presentation/process-mobile-dark.svg"
+          }
+        }
+      },
+      {
+        "title": {
+          "zh": "注入:开局一秒,规划上下文已带证据",
+          "en": "Inject: evidence at the top of planning context"
+        },
+        "body": {
+          "zh": "SessionStart 与 UserPromptSubmit hook 运行 deadend inject:读 stdin 的任务上下文,与台账里的墓碑做确定性匹配,命中的按得分渲染成固定模版;无关任务零输出。",
+          "en": "The SessionStart and UserPromptSubmit hooks run deadend inject: read the task context from stdin, deterministically match it against the ledger, render hits into a fixed block by score; unrelated tasks emit nothing."
+        },
+        "image": {
+          "light": "/assets/presentation/architecture-light.svg",
+          "dark": "/assets/presentation/architecture-dark.svg",
+          "alt": {
+            "zh": "Claude Code hooks 到 inject、match、规划上下文的会话链路,以及 record 到校验、追加 JSONL 台账的记录链路。",
+            "en": "The session path from Claude Code hooks through inject and match to planning context, and the recording path from record through validation to the append-only JSONL ledger."
+          },
+          "mobile": {
+            "light": "/assets/presentation/architecture-mobile-light.svg",
+            "dark": "/assets/presentation/architecture-mobile-dark.svg"
+          }
+        }
+      },
+      {
+        "title": {
+          "zh": "边界:v0.1 只做这一件事",
+          "en": "Scope: v0.1 does one thing"
+        },
+        "body": {
+          "zh": "只记负面结果,只接 Claude Code,只用 JSONL 台账,匹配不用 embedding。确定性匹配会因措辞漂移而漏配 —— 这是刻意选择:离线、免费、秒级,宁可漏配也不在每次会话开始时调用模型。",
+          "en": "Negative results only, Claude Code only, JSONL only, no embeddings. Deterministic matching misses on wording drift — deliberately: instant, offline and free beats a model call at every session start."
+        },
+        "image": {
+          "light": "/assets/presentation/integrations-light.svg",
+          "dark": "/assets/presentation/integrations-dark.svg",
+          "alt": {
+            "zh": "以 deadend 二进制为中心:两个 hook 事件、CLI 命令面、可提交的 JSONL 台账与设置合并。",
+            "en": "Around the deadend binary: two hook events, the CLI command surface, the committable JSONL ledger and the settings merge."
+          },
+          "mobile": {
+            "light": "/assets/presentation/integrations-mobile-light.svg",
+            "dark": "/assets/presentation/integrations-mobile-dark.svg"
+          }
+        }
+      }
+    ]
+  },
+  "demo": {
+    "title": {
+      "zh": "真实运行",
+      "en": "Recorded run"
+    },
+    "note": {
+      "zh": "以下命令与输出来自 examples/fixture-demo.sh 的一次真实运行(夹具仓库、固定日期);inject 是确定性本地渲染,不涉及模型调用。",
+      "en": "Commands and outputs below come from one real run of examples/fixture-demo.sh (fixture repo, pinned dates); inject is a deterministic local render, no model call."
+    },
+    "source": "https://github.com/SuperMarioYL/deadend-ledger/blob/main/docs/demo-results.json",
+    "steps": [
+      {
+        "label": {
+          "zh": "初始化夹具仓库",
+          "en": "Init the fixture repo"
+        },
+        "body": {
+          "zh": "创建 .deadend/ledger.jsonl,并把 SessionStart 与 UserPromptSubmit 两行 hook 合入 .claude/settings.json(先展示 diff,已有配置原样保留)。",
+          "en": "Creates .deadend/ledger.jsonl and merges the SessionStart and UserPromptSubmit hook lines into .claude/settings.json, showing the diff first."
+        },
+        "command": "deadend init",
+        "output": "created .deadend/ledger.jsonl\nmerging hook lines into .claude/settings.json:\n- {}\n+ {\n+   \"hooks\": {\n+     \"SessionStart\": [\n+       {\n+         \"hooks\": [\n+           {\n+             \"command\": \"deadend inject\",\n+             \"timeout\": 10,\n+             \"type\": \"command\"\n+           }\n+         ],\n+         \"matcher\": \"startup|resume|clear\"\n+       }\n+     ],\n+     \"UserPromptSubmit\": [\n+       {\n+         \"hooks\": [\n+           {\n+             \"command\": \"deadend inject\",\n+             \"timeout\": 10,\n+             \"type\": \"command\"\n+           }\n+         ]\n+       }\n+     ]\n+   }\n+ }\n\nnext: when the agent hits a dead end, capture it with `deadend record`",
+        "image": "/assets/presentation/demo-0-light.svg",
+        "imageDark": "/assets/presentation/demo-0-dark.svg"
+      },
+      {
+        "label": {
+          "zh": "记录墓碑 #1",
+          "en": "Record tombstone #1"
+        },
+        "body": {
+          "zh": "磁盘缓存 access token 的方案在 CI 上因权限失败,记为 error_span 证据。",
+          "en": "The on-disk token cache failed on locked-down CI runners; recorded with error_span evidence."
+        },
+        "command": "deadend record --approach \"cache access tokens on disk at ~/.authcache\" ...",
+        "output": "approach    cache access tokens on disk at ~/.authcache\nscope       internal/auth/store.go\nevidence    error_span | internal/auth/store.go:88: open ~/.authcache: permission denied (observed 2026-10-16)\nexcerpt     open ~/.authcache: permission denied — token cache write fails on locked-down CI runners\nexpires     never\nrevive when —\n\ntombstone #1 recorded (ea1981dd) — the next matching session starts with it",
+        "image": "/assets/presentation/demo-1-light.svg",
+        "imageDark": "/assets/presentation/demo-1-dark.svg"
+      },
+      {
+        "label": {
+          "zh": "记录墓碑 #2",
+          "en": "Record tombstone #2"
+        },
+        "body": {
+          "zh": "把 JWT 库升到 v9 会拖动三个下游依赖,记为 build_log 证据。",
+          "en": "Bumping the JWT library to v9 drags three downstream deps; recorded with build_log evidence."
+        },
+        "command": "deadend record --approach \"bump the JWT library to v9 to fix the refresh loop\" ...",
+        "output": "approach    bump the JWT library to v9 to fix the refresh loop\nscope       go.mod, internal/auth\nevidence    build_log | go build ./... (v9 requires module bump of 3 downstream deps) (observed 2026-10-17)\nexcerpt     github.com/golang-jwt/jwt/v9: version 9.0.0 requires go >= 1.25; 3 downstream deps pin go 1.24\nexpires     never\nrevive when —\n\ntombstone #2 recorded (97f93c1c) — the next matching session starts with it",
+        "image": "/assets/presentation/demo-2-light.svg",
+        "imageDark": "/assets/presentation/demo-2-dark.svg"
+      },
+      {
+        "label": {
+          "zh": "记录墓碑 #3",
+          "en": "Record tombstone #3"
+        },
+        "body": {
+          "zh": "client-side token refresh 让 TestTokenRefresh 两次失败,从测试输出文件读取摘录并附上复活条件。",
+          "en": "Client-side token refresh failed TestTokenRefresh twice; excerpt read from the test output, revive condition attached."
+        },
+        "command": "deadend record --approach \"use client-side token refresh\" --scope internal/auth/token.go,TestTokenRefresh --kind failing_test --locator \"go test ./internal/auth -run TestTokenRefresh\" --file token-fail.txt --observed-at 2026-10-15 --revive-when \"...\"",
+        "output": "approach    use client-side token refresh\nscope       internal/auth/token.go, TestTokenRefresh\nevidence    failing_test | go test ./internal/auth -run TestTokenRefresh (observed 2026-10-15)\nexcerpt     --- FAIL: TestTokenRefresh (0.00s)\n    token_test.go:11: refresh loop re-entered: token used to refresh itself,\n        …\nexpires     never\nrevive when the auth backend accepts idempotent refresh (tracked as AUTH-214)\n\ntombstone #3 recorded (2a8b91d0) — the next matching session starts with it",
+        "image": "/assets/presentation/demo-3-light.svg",
+        "imageDark": "/assets/presentation/demo-3-dark.svg"
+      },
+      {
+        "label": {
+          "zh": "查看台账",
+          "en": "List the ledger"
+        },
+        "body": {
+          "zh": "show 渲染全部三枚墓碑及其证据定位符;定位符随时可以机器验证。",
+          "en": "show renders all three tombstones with their machine-checkable evidence locators."
+        },
+        "command": "deadend show",
+        "output": "#1 [ea1981dd] active · recorded 2026-10-16\n   approach: cache access tokens on disk at ~/.authcache\n   scope: internal/auth/store.go\n   evidence: error_span | internal/auth/store.go:88: open ~/.authcache: permission denied (observed 2026-10-16)\n   excerpt: open ~/.authcache: permission denied — token cache write fails on locked-down CI runners\n\n#2 [97f93c1c] active · recorded 2026-10-17\n   approach: bump the JWT library to v9 to fix the refresh loop\n   scope: go.mod, internal/auth\n   evidence: build_log | go build ./... (v9 requires module bump of 3 downstream deps) (observed 2026-10-17)\n   excerpt: github.com/golang-jwt/jwt/v9: version 9.0.0 requires go >= 1.25; 3 downstream deps pin go 1.24\n\n#3 [2a8b91d0] active · recorded 2026-10-15\n   approach: use client-side token refresh\n   scope: internal/auth/token.go, TestTokenRefresh\n   evidence: failing_test | go test ./internal/auth -run TestTokenRefresh (observed 2026-10-15)\n   excerpt: --- FAIL: TestTokenRefresh (0.00s)\n    token_test.go:11: refresh loop re-entered: token used to refresh itself,\n        next expiry moved backwards. 2 attempts, 2 failures this session.\nFAIL\nFAIL\tauthservice/internal/auth\t0.312s\nFAIL\n   revive when: the auth backend accepts idempotent refresh (tracked as AUTH-214)\n\n3 tombstone(s) in .deadend/ledger.jsonl",
+        "image": "/assets/presentation/demo-4-light.svg",
+        "imageDark": "/assets/presentation/demo-4-dark.svg"
+      },
+      {
+        "label": {
+          "zh": "相似任务注入",
+          "en": "Inject for the matching task"
+        },
+        "body": {
+          "zh": "任务描述与三枚墓碑的 scope 都落在 internal/auth,全部命中并按得分排序;#3(client-side token refresh)得分最高,排第一。",
+          "en": "All three tombstones live in internal/auth, so they all match and sort by score; #3 (client-side token refresh) scores highest and renders first."
+        },
+        "command": "deadend inject --context \"the token refresh still loops; try the client-side token refresh approach in internal/auth/token.go\"",
+        "output": "<deadend-ledger active-tombstones>\nThe following approach(es) already failed in this repo. Do NOT retry them unless the revive condition now holds.\n\n[tombstone #3] use client-side token refresh\n  scope: internal/auth/token.go, TestTokenRefresh\n  evidence: failing_test | go test ./internal/auth -run TestTokenRefresh (observed 2026-10-15)\n  excerpt: --- FAIL: TestTokenRefresh (0.00s) token_test.go:11: refresh loop re-entered: token used to refresh itself, next expiry moved backwards. 2 attempts, 2 failures this session. FAIL FAIL authservice/internal/auth 0.312s FAIL\n  do-not-retry unless: the auth backend accepts idempotent refresh (tracked as AUTH-214)\n[tombstone #1] cache access tokens on disk at ~/.authcache\n  scope: internal/auth/store.go\n  evidence: error_span | internal/auth/store.go:88: open ~/.authcache: permission denied (observed 2026-10-16)\n  excerpt: open ~/.authcache: permission denied — token cache write fails on locked-down CI runners\n[tombstone #2] bump the JWT library to v9 to fix the refresh loop\n  scope: go.mod, internal/auth\n  evidence: build_log | go build ./... (v9 requires module bump of 3 downstream deps) (observed 2026-10-17)\n  excerpt: github.com/golang-jwt/jwt/v9: version 9.0.0 requires go >= 1.25; 3 downstream deps pin go 1.24\n</deadend-ledger>",
+        "image": "/assets/presentation/demo-5-light.svg",
+        "imageDark": "/assets/presentation/demo-5-dark.svg"
+      },
+      {
+        "label": {
+          "zh": "无关任务注入为空",
+          "en": "Unrelated task injects nothing"
+        },
+        "body": {
+          "zh": "不在 scope 内的任务一个字节都不输出,wc -c 计数为 0;注入是确定性本地渲染,无模型调用、无网络。",
+          "en": "A task outside the scope emits zero bytes (wc -c = 0); injection is a deterministic local render with no model call and no network."
+        },
+        "command": "deadend inject --context \"fix the flaky retry in the download queue\" | wc -c",
+        "output": "       0",
+        "image": "/assets/presentation/demo-6-light.svg",
+        "imageDark": "/assets/presentation/demo-6-dark.svg"
+      }
+    ]
+  },
+  "quickstart": {
+    "title": {
+      "zh": "十分钟上手",
+      "en": "Start in ten minutes"
+    },
+    "body": {
+      "zh": "需要 Go 1.24+。整个过程本地运行:不调用模型,不需要 API key,台账就是一个可提交的 JSONL 文件。",
+      "en": "Requires Go 1.24+. Everything runs locally: no model calls, no API key; the ledger is one committable JSONL file."
+    },
+    "steps": [
+      {
+        "title": {
+          "zh": "安装",
+          "en": "Install"
+        },
+        "code": "go install github.com/SuperMarioYL/deadend-ledger@latest"
+      },
+      {
+        "title": {
+          "zh": "初始化仓库",
+          "en": "Init the repo"
+        },
+        "code": "cd your-repo\ndeadend init"
+      },
+      {
+        "title": {
+          "zh": "记录第一枚墓碑",
+          "en": "Record the first tombstone"
+        },
+        "code": "deadend record\n# 或全 flags:\ndeadend record --approach \"use client-side token refresh\" \\\n  --scope internal/auth/token.go,TestTokenRefresh \\\n  --kind failing_test \\\n  --locator \"go test ./internal/auth -run TestTokenRefresh\" \\\n  --file test-output.txt"
+      },
+      {
+        "title": {
+          "zh": "验证注入",
+          "en": "Verify injection"
+        },
+        "code": "deadend inject --context \"try the client-side token refresh again\"\ndeadend inject --context \"unrelated task\" | wc -c   # 0"
+      }
+    ]
+  },
+  "limitations": [
+    {
+      "zh": "确定性匹配会漏:任务措辞与 scope 键漂移过大时,墓碑不会注入。这是刻意取舍 —— 用离线秒级的漏配,换掉每次会话开始时的模型调用。",
+      "en": "Deterministic matching misses: if task wording drifts far from the scope keys, the tombstone does not inject. Deliberate trade-off — an instant offline miss instead of a model call at every session start."
+    },
+    {
+      "zh": "v0.1 只接 Claude Code(SessionStart/UserPromptSubmit hook);JSONL 台账格式与具体 agent 无关,其他集成属后续版本。review/revive 的状态流转尚未实现,deadend show 是当前的查看面。",
+      "en": "v0.1 integrates Claude Code only (SessionStart/UserPromptSubmit hooks); the JSONL ledger format is agent-agnostic, other integrations are post-v0.1. Review/revive status transitions are not implemented yet; deadend show is the current review surface."
+    },
+    {
+      "zh": "匹配只看 scope token,不读墓碑的 approach 文本;scope 建议用路径、符号、包名这类漂移小的键,而不是自由措辞。",
+      "en": "Matching reads scope tokens only, not the approach wording; prefer drift-resistant scope keys (paths, symbols, packages) over free-form phrasing."
+    }
+  ],
+  "footer": {
+    "tag": "0.1.0 · Go 1.24 · MIT"
+  }
+}

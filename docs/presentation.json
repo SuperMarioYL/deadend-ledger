@@ -1,0 +1,37 @@
+{
+  "name": "deadend-ledger",
+  "tagline": "Record dead ends with machine evidence. Inject them before the agent re-walks them.",
+  "advantage": "Evidence in. Dead ends out.",
+  "architecture": {
+    "title": "Two paths, one append-only ledger",
+    "nodes": [
+      {"title": "Claude Code hooks", "detail": "SessionStart · UserPromptSubmit"},
+      {"title": "deadend inject", "detail": "hook entry point · no daemon"},
+      {"title": "internal/match", "detail": "token overlap ≥ 0.35"},
+      {"title": "planning context", "detail": "fixed block ≤ 2400 runes"},
+      {"title": "deadend record", "detail": "flags + interactive prompts"},
+      {"title": "ledger.jsonl", "detail": ".deadend/ · append-only · committable"}
+    ],
+    "edges": [[0, 1], [1, 2], [2, 3], [4, 5], [5, 1]]
+  },
+  "process": {
+    "title": "From failure to skip, in four moves",
+    "steps": [
+      {"title": "Record the dead end", "detail": "approach · scope · evidence locator"},
+      {"title": "Validate and append", "detail": "schema-checked JSONL line"},
+      {"title": "Score at session start", "detail": "deterministic token overlap, constant threshold"},
+      {"title": "Inject or stay silent", "detail": "matched block under a hard cap; no match, zero bytes"}
+    ],
+    "result": "The agent skips the tombstoned approach instead of re-walking it."
+  },
+  "integrations": {
+    "title": "Implemented surfaces, one binary",
+    "items": [
+      {"title": "SessionStart hook", "detail": "matcher: startup|resume|clear"},
+      {"title": "UserPromptSubmit hook", "detail": "prompt scored every turn"},
+      {"title": "CLI surface", "detail": "init · record · show · inject"},
+      {"title": "ledger.jsonl", "detail": ".deadend/ · agent-agnostic, one line per tombstone"},
+      {"title": "settings.json merge", "detail": "additive, idempotent, diff shown first"}
+    ]
+  }
+}

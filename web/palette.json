@@ -1,0 +1,38 @@
+{
+  "mode": "auto",
+  "id": "e656af-e76a74-f6acf5-2657acc483b5",
+  "identity": "https://github.com/supermarioyl/deadend-ledger",
+  "primary": "#e656af",
+  "secondary": "#e76a74",
+  "highlight": "#f6acf5",
+  "dark": {
+    "bg": "#0a0710",
+    "panel": "#13101c",
+    "code": "#140d19",
+    "ink": "#fdeefd",
+    "muted": "#b29cb9",
+    "line": "#3a1833",
+    "primary": "#e656af",
+    "secondary": "#e76a74",
+    "highlight": "#f6acf5",
+    "accent": "#e656af",
+    "buttonStart": "#c24894",
+    "buttonEnd": "#bd565f",
+    "buttonText": "#ffffff"
+  },
+  "light": {
+    "bg": "#fef9fc",
+    "panel": "#fef7fb",
+    "code": "#fdf3f9",
+    "ink": "#271628",
+    "muted": "#725e7d",
+    "line": "#f7cbe6",
+    "primary": "#b9458d",
+    "secondary": "#b4525a",
+    "highlight": "#8d638d",
+    "accent": "#b9458d",
+    "buttonStart": "#c24894",
+    "buttonEnd": "#bd565f",
+    "buttonText": "#ffffff"
+  }
+}
