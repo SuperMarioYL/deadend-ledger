@@ -71,7 +71,7 @@ cd your-repo
 deadend init
 ```
 
-**2. Record a tombstone when the agent hits the dead end** — plain `deadend record` asks interactively: approach, scope (defaulting to the files changed in this repo), the evidence locator, the error excerpt (capped at 400 chars), plus optional expiry and revive condition. Scripted runs pass everything as flags:
+**2. Record a tombstone when the agent hits the dead end** — plain `deadend record` asks interactively: approach, scope (defaulting to the files changed in this repo), the evidence locator, the error excerpt (capped at 400 chars), plus optional expiry and revive condition. Scripted runs add `--yes` (no prompts, no confirm) and pass everything as flags:
 
 ```bash
 deadend record \
@@ -80,7 +80,8 @@ deadend record \
   --kind failing_test \
   --locator "go test ./internal/auth -run TestTokenRefresh" \
   --file test-output.txt \
-  --revive-when "the auth backend accepts idempotent refresh"
+  --revive-when "the auth backend accepts idempotent refresh" \
+  --yes
 ```
 
 **3. Verify injection** — a similar task matches; an unrelated task emits nothing:

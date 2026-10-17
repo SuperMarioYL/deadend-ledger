@@ -71,7 +71,7 @@ cd your-repo
 deadend init
 ```
 
-**2. 智能体踩坑后,记录一枚墓碑** —— 直接跑 `deadend record` 会交互式提问:approach、scope(默认取本仓库改动的文件)、证据定位符、错误摘录(自动截到 400 字符)、可选的过期日期与复活条件。脚本化场景全量用 flags:
+**2. 智能体踩坑后,记录一枚墓碑** —— 直接跑 `deadend record` 会交互式提问:approach、scope(默认取本仓库改动的文件)、证据定位符、错误摘录(自动截到 400 字符)、可选的过期日期与复活条件。脚本化场景加 `--yes`(零提问、免确认),全量用 flags:
 
 ```bash
 deadend record \
@@ -80,7 +80,8 @@ deadend record \
   --kind failing_test \
   --locator "go test ./internal/auth -run TestTokenRefresh" \
   --file test-output.txt \
-  --revive-when "the auth backend accepts idempotent refresh"
+  --revive-when "the auth backend accepts idempotent refresh" \
+  --yes
 ```
 
 **3. 验证注入** —— 相似任务命中,无关任务零输出:
