@@ -54,7 +54,7 @@
         "en": "Evidence, not vibes"
       },
       "body": {
-        "zh": "每枚墓碑必须带可机器验证的证据:失败测试命令、错误定位或构建日志,4 个字符以上的定位符随时可以重跑。",
+        "zh": "每枚墓碑必须带可机器验证的证据:失败测试命令、错误定位或构建日志,随时可以重跑。",
         "en": "Every tombstone carries machine-checkable evidence: a failing test command, an error span or a build log you can re-run at any time."
       }
     },
