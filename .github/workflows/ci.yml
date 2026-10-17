@@ -1,0 +1,29 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: Test
+        run: go test ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Smoke-test the CLI on the bundled fixture
+        run: |
+          go build -o /tmp/deadend .
+          /tmp/deadend --version
+          bash examples/fixture-demo.sh > /tmp/fixture-run.log
+          grep -q "tombstone #3 recorded" /tmp/fixture-run.log
+          test "$(tail -n 1 /tmp/fixture-run.log | tr -d ' ')" = "0"
