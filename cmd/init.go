@@ -35,9 +35,9 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if created {
-		fmt.Printf("created %s\n", ledger.LedgerPath(repo))
+		fmt.Printf("created %s\n", ledger.RelativeLedgerPath())
 	} else {
-		fmt.Printf("%s already exists — tombstones kept\n", ledger.LedgerPath(repo))
+		fmt.Printf("%s already exists — tombstones kept\n", ledger.RelativeLedgerPath())
 	}
 
 	modified, before, after, err := hooks.Install(repo)

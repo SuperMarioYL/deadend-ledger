@@ -33,6 +33,12 @@ func LedgerPath(repoRoot string) string {
 	return filepath.Join(repoRoot, DirName, FileName)
 }
 
+// RelativeLedgerPath is the ledger location as shown to a user working in
+// the repo root: ".deadend/ledger.jsonl".
+func RelativeLedgerPath() string {
+	return filepath.Join(DirName, FileName)
+}
+
 // Open returns the store for a repo root. The file itself is created by Init.
 func Open(repoRoot string) *Store {
 	return &Store{path: LedgerPath(repoRoot)}

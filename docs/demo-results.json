@@ -1,0 +1,47 @@
+{
+  "version": "0.1.0",
+  "scope": "Fixture authservice repo: three tombstones recorded with pinned dates, listed with their evidence locators; injection scores a matching task context (all three tombstones live in internal/auth, so they all match; tombstone #3 scores highest) and an unrelated one (empty output). The run builds the CLI, creates the fixture and records via flags - no Claude Code session, model call or network involved; inject is a deterministic local render.",
+  "inputs": [
+    {
+      "path": "examples/fixture-demo.sh",
+      "sha256": "a8fa34bb8ec88d1232543d8f445ef067ac555ffdf5b8e0ab05acc949b61cbae7"
+    }
+  ],
+  "steps": [
+    {
+      "command": "deadend init",
+      "output": "created .deadend/ledger.jsonl\nmerging hook lines into .claude/settings.json:\n- {}\n+ {\n+   \"hooks\": {\n+     \"SessionStart\": [\n+       {\n+         \"hooks\": [\n+           {\n+             \"command\": \"deadend inject\",\n+             \"timeout\": 10,\n+             \"type\": \"command\"\n+           }\n+         ],\n+         \"matcher\": \"startup|resume|clear\"\n+       }\n+     ],\n+     \"UserPromptSubmit\": [\n+       {\n+         \"hooks\": [\n+           {\n+             \"command\": \"deadend inject\",\n+             \"timeout\": 10,\n+             \"type\": \"command\"\n+           }\n+         ]\n+       }\n+     ]\n+   }\n+ }\n\nnext: when the agent hits a dead end, capture it with `deadend record`",
+      "label": "init the fixture repo"
+    },
+    {
+      "command": "deadend record --approach \"cache access tokens on disk at ~/.authcache\" ...",
+      "output": "approach    cache access tokens on disk at ~/.authcache\nscope       internal/auth/store.go\nevidence    error_span | internal/auth/store.go:88: open ~/.authcache: permission denied (observed 2026-10-16)\nexcerpt     open ~/.authcache: permission denied — token cache write fails on locked-down CI runners\nexpires     never\nrevive when —\n\ntombstone #1 recorded (ea1981dd) — the next matching session starts with it",
+      "label": "record tombstone #1"
+    },
+    {
+      "command": "deadend record --approach \"bump the JWT library to v9 to fix the refresh loop\" ...",
+      "output": "approach    bump the JWT library to v9 to fix the refresh loop\nscope       go.mod, internal/auth\nevidence    build_log | go build ./... (v9 requires module bump of 3 downstream deps) (observed 2026-10-17)\nexcerpt     github.com/golang-jwt/jwt/v9: version 9.0.0 requires go >= 1.25; 3 downstream deps pin go 1.24\nexpires     never\nrevive when —\n\ntombstone #2 recorded (97f93c1c) — the next matching session starts with it",
+      "label": "record tombstone #2"
+    },
+    {
+      "command": "deadend record --approach \"use client-side token refresh\" --scope internal/auth/token.go,TestTokenRefresh --kind failing_test --locator \"go test ./internal/auth -run TestTokenRefresh\" --file token-fail.txt --observed-at 2026-10-15 --revive-when \"...\"",
+      "output": "approach    use client-side token refresh\nscope       internal/auth/token.go, TestTokenRefresh\nevidence    failing_test | go test ./internal/auth -run TestTokenRefresh (observed 2026-10-15)\nexcerpt     --- FAIL: TestTokenRefresh (0.00s)\n    token_test.go:11: refresh loop re-entered: token used to refresh itself,\n        …\nexpires     never\nrevive when the auth backend accepts idempotent refresh (tracked as AUTH-214)\n\ntombstone #3 recorded (2a8b91d0) — the next matching session starts with it",
+      "label": "record tombstone #3"
+    },
+    {
+      "command": "deadend show",
+      "output": "#1 [ea1981dd] active · recorded 2026-10-16\n   approach: cache access tokens on disk at ~/.authcache\n   scope: internal/auth/store.go\n   evidence: error_span | internal/auth/store.go:88: open ~/.authcache: permission denied (observed 2026-10-16)\n   excerpt: open ~/.authcache: permission denied — token cache write fails on locked-down CI runners\n\n#2 [97f93c1c] active · recorded 2026-10-17\n   approach: bump the JWT library to v9 to fix the refresh loop\n   scope: go.mod, internal/auth\n   evidence: build_log | go build ./... (v9 requires module bump of 3 downstream deps) (observed 2026-10-17)\n   excerpt: github.com/golang-jwt/jwt/v9: version 9.0.0 requires go >= 1.25; 3 downstream deps pin go 1.24\n\n#3 [2a8b91d0] active · recorded 2026-10-15\n   approach: use client-side token refresh\n   scope: internal/auth/token.go, TestTokenRefresh\n   evidence: failing_test | go test ./internal/auth -run TestTokenRefresh (observed 2026-10-15)\n   excerpt: --- FAIL: TestTokenRefresh (0.00s)\n    token_test.go:11: refresh loop re-entered: token used to refresh itself,\n        next expiry moved backwards. 2 attempts, 2 failures this session.\nFAIL\nFAIL\tauthservice/internal/auth\t0.312s\nFAIL\n   revive when: the auth backend accepts idempotent refresh (tracked as AUTH-214)\n\n3 tombstone(s) in .deadend/ledger.jsonl",
+      "label": "list the ledger"
+    },
+    {
+      "command": "deadend inject --context \"the token refresh still loops; try the client-side token refresh approach in internal/auth/token.go\"",
+      "output": "<deadend-ledger active-tombstones>\nThe following approach(es) already failed in this repo. Do NOT retry them unless the revive condition now holds.\n\n[tombstone #3] use client-side token refresh\n  scope: internal/auth/token.go, TestTokenRefresh\n  evidence: failing_test | go test ./internal/auth -run TestTokenRefresh (observed 2026-10-15)\n  excerpt: --- FAIL: TestTokenRefresh (0.00s) token_test.go:11: refresh loop re-entered: token used to refresh itself, next expiry moved backwards. 2 attempts, 2 failures this session. FAIL FAIL authservice/internal/auth 0.312s FAIL\n  do-not-retry unless: the auth backend accepts idempotent refresh (tracked as AUTH-214)\n[tombstone #1] cache access tokens on disk at ~/.authcache\n  scope: internal/auth/store.go\n  evidence: error_span | internal/auth/store.go:88: open ~/.authcache: permission denied (observed 2026-10-16)\n  excerpt: open ~/.authcache: permission denied — token cache write fails on locked-down CI runners\n[tombstone #2] bump the JWT library to v9 to fix the refresh loop\n  scope: go.mod, internal/auth\n  evidence: build_log | go build ./... (v9 requires module bump of 3 downstream deps) (observed 2026-10-17)\n  excerpt: github.com/golang-jwt/jwt/v9: version 9.0.0 requires go >= 1.25; 3 downstream deps pin go 1.24\n</deadend-ledger>",
+      "label": "inject for the matching task"
+    },
+    {
+      "command": "deadend inject --context \"fix the flaky retry in the download queue\" | wc -c",
+      "output": "       0",
+      "label": "inject for an unrelated task"
+    }
+  ]
+}

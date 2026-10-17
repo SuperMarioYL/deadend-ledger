@@ -60,7 +60,7 @@ func runShow(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Fprintln(out)
 	}
-	fmt.Fprintf(out, "%d tombstone(s) in %s\n", len(entries), ledger.LedgerPath(repo))
+	fmt.Fprintf(out, "%d tombstone(s) in %s\n", len(entries), ledger.RelativeLedgerPath())
 	return nil
 }
 
