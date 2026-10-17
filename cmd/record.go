@@ -50,7 +50,7 @@ func init() {
 	recordCmd.Flags().StringVar(&recordFlags.observed, "observed-at", "", "date the failure was observed (YYYY-MM-DD, default today)")
 	recordCmd.Flags().StringVar(&recordFlags.expires, "expires", "", "optional expiry date; past due stops injection (YYYY-MM-DD)")
 	recordCmd.Flags().StringVar(&recordFlags.reviveWhen, "revive-when", "", "condition under which the approach is worth retrying")
-	recordCmd.Flags().BoolVarP(&recordFlags.yes, "yes", "y", false, "record without the interactive confirm")
+	recordCmd.Flags().BoolVarP(&recordFlags.yes, "yes", "y", false, "scripted mode: take everything from flags, no prompts, no confirm")
 	rootCmd.AddCommand(recordCmd)
 }
 
@@ -60,18 +60,20 @@ func runRecord(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	stdinIsTTY := isTerminal(os.Stdin)
-	prompt := newPrompter(os.Stdin, cmd.OutOrStdout(), stdinIsTTY)
+	// --yes forces the scripted path: flags only, no prompts, no confirm.
+	interactive := stdinIsTTY && !recordFlags.yes
+	prompt := newPrompter(os.Stdin, cmd.OutOrStdout())
 
 	approach := recordFlags.approach
 	if approach == "" {
-		if !stdinIsTTY {
+		if !interactive {
 			return errors.New("approach is required: pass --approach or run interactively in a terminal")
 		}
 		approach = prompt.required("approach (imperative, e.g. use client-side token refresh)")
 	}
 
 	scope := cleanScope(recordFlags.scope)
-	if len(scope) == 0 && stdinIsTTY {
+	if len(scope) == 0 && interactive {
 		scope = prompt.scope(suggestScope(repo))
 	}
 	if len(scope) == 0 {
@@ -85,13 +87,13 @@ func runRecord(cmd *cobra.Command, args []string) error {
 
 	locator := recordFlags.locator
 	if locator == "" {
-		if !stdinIsTTY {
+		if !interactive {
 			return errors.New("locator is required: pass --locator (the machine-checkable command or span)")
 		}
 		locator = prompt.required("evidence locator (e.g. go test ./internal/auth -run TestTokenRefresh)")
 	}
 
-	excerpt, err := resolveExcerpt(cmd, prompt, stdinIsTTY)
+	excerpt, err := resolveExcerpt(cmd, prompt, interactive)
 	if err != nil {
 		return err
 	}
@@ -100,13 +102,21 @@ func runRecord(cmd *cobra.Command, args []string) error {
 	if observed == "" {
 		observed = time.Now().Format(ledger.DateFormat)
 	}
+	expires := recordFlags.expires
+	if expires == "" && interactive {
+		expires = prompt.date("expires, past due stops injection (YYYY-MM-DD, Enter = never)")
+	}
+	reviveWhen := recordFlags.reviveWhen
+	if reviveWhen == "" && interactive {
+		reviveWhen = prompt.optional("revive when — what would make this worth retrying (Enter = none)")
+	}
 	ts := ledger.Tombstone{
 		Approach:   approach,
 		Scope:      scope,
 		Status:     ledger.StatusActive,
 		CreatedAt:  observed,
-		ExpiresAt:  recordFlags.expires,
-		ReviveWhen: recordFlags.reviveWhen,
+		ExpiresAt:  expires,
+		ReviveWhen: reviveWhen,
 		Evidence: ledger.Evidence{
 			Kind:       kind,
 			Locator:    locator,
@@ -121,7 +131,7 @@ func runRecord(cmd *cobra.Command, args []string) error {
 	}
 
 	printSummary(cmd.OutOrStdout(), ts)
-	if stdinIsTTY && !recordFlags.yes {
+	if interactive {
 		if !prompt.confirm("Record this tombstone?") {
 			fmt.Println("aborted — nothing written")
 			return nil
@@ -142,7 +152,7 @@ func runRecord(cmd *cobra.Command, args []string) error {
 
 // resolveExcerpt applies the excerpt precedence: --excerpt, then --file
 // (including "-" for stdin), then the interactive paste, else empty.
-func resolveExcerpt(cmd *cobra.Command, p *prompter, stdinIsTTY bool) (string, error) {
+func resolveExcerpt(cmd *cobra.Command, p *prompter, interactive bool) (string, error) {
 	switch {
 	case recordFlags.excerpt != "":
 		return recordFlags.excerpt, nil
@@ -158,7 +168,7 @@ func resolveExcerpt(cmd *cobra.Command, p *prompter, stdinIsTTY bool) (string, e
 			return "", err
 		}
 		return string(data), nil
-	case stdinIsTTY:
+	case interactive:
 		return p.paste("paste the failing output, finish with a line containing only END"), nil
 	default:
 		return "", nil
@@ -195,11 +205,10 @@ func printSummary(w io.Writer, ts ledger.Tombstone) {
 type prompter struct {
 	reader *bufio.Reader
 	out    io.Writer
-	active bool
 }
 
-func newPrompter(in io.Reader, out io.Writer, active bool) *prompter {
-	return &prompter{reader: bufio.NewReader(in), out: out, active: active}
+func newPrompter(in io.Reader, out io.Writer) *prompter {
+	return &prompter{reader: bufio.NewReader(in), out: out}
 }
 
 func (p *prompter) required(label string) string {
@@ -211,6 +220,27 @@ func (p *prompter) required(label string) string {
 			return line
 		}
 		fmt.Fprintln(p.out, "  (required)")
+	}
+}
+
+// optional accepts an empty answer as "not set".
+func (p *prompter) optional(label string) string {
+	fmt.Fprintf(p.out, "%s: ", label)
+	line, _ := p.reader.ReadString('\n')
+	return strings.TrimSpace(line)
+}
+
+// date keeps asking until the answer is empty or a valid ledger date.
+func (p *prompter) date(label string) string {
+	for {
+		line := p.optional(label)
+		if line == "" {
+			return ""
+		}
+		if _, err := time.Parse(ledger.DateFormat, line); err == nil {
+			return line
+		}
+		fmt.Fprintf(p.out, "  (want %s)\n", ledger.DateFormat)
 	}
 }
 
