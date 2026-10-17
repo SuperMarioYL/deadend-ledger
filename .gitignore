@@ -1,0 +1,34 @@
+# Go build artifacts
+/deadend-ledger
+deadend
+*.test
+*.out
+
+# local runtime state (append-only ledger + Claude Code settings are per-repo)
+# — note: .deadend/ and .claude/ inside *user* repos are meant to be committed,
+# but this repo's own fixtures keep them out of history
+sandbox/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# build scratch
+.builder_*
+.build_metadata*
+.stage_*
+.build_ctx.json
+_build_ctx.json
+*_BLOCKED.md
+BUILD_SETUP_NEXT_STEPS.md
+DRIFT*
+
+# local agent config
+.claude/
+CLAUDE.md
