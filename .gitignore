@@ -32,3 +32,4 @@ DRIFT*
 # local agent config
 .claude/
 CLAUDE.md
+.spawn.*
