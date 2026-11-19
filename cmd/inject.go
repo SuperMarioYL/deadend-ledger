@@ -64,11 +64,13 @@ func runInject(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	entries, err := ledger.Open(repo).Load()
-	if err != nil {
-		return err
+	// A hook must never break a session: unreadable ledger records are
+	// reported once and skipped, so every readable tombstone still applies.
+	entries, skipped := ledger.Open(repo).LoadBestEffort()
+	for _, problem := range skipped {
+		fmt.Fprintf(cmd.ErrOrStderr(), "deadend inject: skipping unreadable ledger record: %v\n", problem)
 	}
-	fmt.Print(inject.Block(entries, context, time.Now()))
+	fmt.Fprint(cmd.OutOrStdout(), inject.Block(entries, context, time.Now()))
 	return nil
 }
 

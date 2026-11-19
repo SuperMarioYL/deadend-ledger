@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "0.2.0",
   "scope": "Fixture authservice repo: three tombstones recorded with pinned dates, listed with their evidence locators; injection scores a matching task context (all three tombstones live in internal/auth, so they all match; tombstone #3 scores highest) and an unrelated one (empty output). The run builds the CLI, creates the fixture and records via flags - no Claude Code session, model call or network involved; inject is a deterministic local render.",
   "inputs": [
     {

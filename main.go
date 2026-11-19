@@ -7,7 +7,7 @@ import "github.com/SuperMarioYL/deadend-ledger/cmd"
 
 // version is the release single source of truth in the root VERSION file;
 // release builds override it via -ldflags "-X main.version=...".
-var version = "0.1.0"
+var version = "0.2.0"
 
 func main() {
 	cmd.Execute(version)

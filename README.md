@@ -19,7 +19,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/SuperMarioYL/deadend-ledger.svg)](https://pkg.go.dev/github.com/SuperMarioYL/deadend-ledger)
 [![license](https://img.shields.io/badge/license-MIT-e656af?style=flat-square)](LICENSE)
 
-`v0.1.0` · [演示记录](docs/demo-results.json) · [十分钟上手](#快速开始)
+`v0.2.0` · [演示记录](docs/demo-results.json) · [十分钟上手](#快速开始)
 
 ## <img src="https://cdn.jsdelivr.net/npm/@tabler/icons@3.34.1/icons/outline/flag-x.svg" height="18" alt=""> 为什么使用
 
@@ -101,6 +101,19 @@ git add .deadend/ledger.jsonl .claude/settings.json
 git commit -m "record dead ends: client-side token refresh"
 ```
 
+**5. 每周巡检,条件成立时复活**:
+
+```bash
+deadend review
+# 3 tombstone(s): 2 injecting, 1 past due, 0 expired, 0 revived
+# #3 [2a8b91d0] active · 35 days old · injecting
+
+deadend revive 2a8b91d0 --revive-when "the auth backend now accepts idempotent refresh"
+# tombstone #3 (2a8b91d0) revived — it stops injecting; revive when: ...
+```
+
+`revive` 不重写原行:它追加一条状态变更记录,台账始终是 append-only。同一方案复活后如果又失败,再次 `record` 会重新激活同一枚墓碑(ordinal 不变)。
+
 ## 实际演示
 
 <picture>
@@ -150,8 +163,8 @@ $ deadend inject --context "fix the flaky retry in the download queue" | wc -c
 | `deadend record` | 记录一枚墓碑;flags 全量可用,终端里交互式提问 | v0.1 |
 | `deadend show` | 渲染全部墓碑及其证据定位符 | v0.1 |
 | `deadend inject` | 读取任务上下文,命中则打印注入块(hook 入口) | v0.1 |
-| `deadend review` | 按状态、年龄、证据巡检台账 | 规划中(当前用 `show`) |
-| `deadend revive <id>` | 复活条件成立时解除墓碑 | 规划中 |
+| `deadend review` | 按状态、年龄、是否仍在注入、证据巡检台账 | v0.2 |
+| `deadend revive <id>` | 复活条件成立时解除墓碑(追加状态变更记录) | v0.2 |
 
 注入块带硬上限(2400 字符):无论命中多少,都不会淹没规划上下文;放不下的按得分舍弃,并附一条 `deadend show` 提示。
 
@@ -176,7 +189,9 @@ $ deadend inject --context "fix the flaky retry in the download queue" | wc -c
 }
 ```
 
-字段语义:`id` 由 approach + locator 哈希得出,同一失败重复记录会被拒绝;`scope` 是匹配键;`evidence.locator` 必须是可机器验证的命令或错误定位;`status` 取 `active` / `expired` / `revived`;`expires_at` 过期即停止注入(墓碑腐烂);`revive_when` 说明什么条件下这条路值得重试。JSONL 格式与具体 agent 无关 —— Claude Code 只是最先接入的会话环境。
+字段语义:`id` 由 approach + locator 哈希得出,同一失败重复记录会被拒绝(已复活的那一枚除外,再次失败会重新激活);`scope` 是匹配键;`evidence.locator` 必须是可机器验证的命令或错误定位;`status` 取 `active` / `expired` / `revived`;`expires_at` 过期即停止注入(墓碑腐烂);`revive_when` 说明什么条件下这条路值得重试。
+
+状态变更也是追加:一行 `status: revived` 的完整记录跟在原记录后面,读取时同一 `id` 以最后一条为准,ordinal 保持在首次出现的位置。因此台账始终是 append-only、可直接提交、可按文本合并;`review` / `inject` 看的是解析后的状态,`show` 仍按 ordinal 渲染。JSONL 格式与具体 agent 无关 —— Claude Code 只是最先接入的会话环境。
 
 ## 与散文记忆的分工
 
@@ -194,15 +209,15 @@ $ deadend inject --context "fix the flaky retry in the download queue" | wc -c
 
 ## <img src="https://cdn.jsdelivr.net/npm/@tabler/icons@3.34.1/icons/outline/coin.svg" height="18" alt=""> 付费
 
-v0.1 是本地运行的开源 CLI,单人文档式的失败台账不收费。产品要解决的下一层问题在团队:**只有一个人看得见的台账,只修一个人的记忆** —— 墓碑无人巡检地腐烂,没有跨仓库的视图,也没有机制阻止别的 PR 重走死路。
+开源 CLI 在本地运行,单人文档式的失败台账不收费。产品要解决的下一层问题在团队:**只有一个人看得见的台账,只修一个人的记忆** —— 墓碑无人巡检地腐烂,没有跨仓库的视图,也没有机制阻止别的 PR 重走死路。
 
-因此商业方向是**托管团队层**(在开源 CLI 验证之后上线,本仓库的 v0.1 不含任何服务端):
+因此商业方向是**托管团队层**(在开源 CLI 验证之后上线,本仓库不含任何服务端):
 
-| | 开源 CLI(v0.1) | 托管团队层(规划) |
+| | 开源 CLI(v0.2) | 托管团队层(规划) |
 | --- | --- | --- |
 | 形态 | 本地二进制 + 仓库内 JSONL | 托管服务 |
 | 范围 | 单仓库、单人 | 跨仓库墓碑同步 |
-| 巡检 | `deadend show` | review / revive 队列 |
+| 巡检 | `deadend review` / `deadend revive` | 跨仓库 review / revive 队列 |
 | CI | — | PR 试图重走活跃墓碑时自动评论 |
 
 价格:$19/席/月,≤3 席免费,年付赠 2 个月;国际结算走 Stripe,国内自助渠道(爱发电/面包多)随后跟上。
@@ -212,15 +227,16 @@ v0.1 是本地运行的开源 CLI,单人文档式的失败台账不收费。产�
 ## 路线图
 
 - **v0.1(已实现)**:墓碑记录、schema 校验、append-only 台账、确定性匹配、注入渲染、Claude Code hook 安装器。
-- **下一步**:`review` / `revive` 的状态流转(过期扫描、复活条件检查),补齐墓碑生命周期的操作面。
+- **v0.2(当前)**:`review` / `revive` 生命周期(状态、年龄、复活条件)、追加式状态变更、复活后再次失败的重激活;并修复三处台账安全问题(末行无换行时的追加、scope 默认值的引号/状态目录、损坏行导致的注入失败)。
 - **之后**:更多 agent 集成(台账格式与 agent 无关,期待 Cursor、Codex 等会话环境接入)、托管团队层(见[付费](#付费))。
 
 ## 局限
 
 - **确定性匹配会漏**:任务措辞与 scope 键漂移过大时,墓碑不会注入。这是刻意的:离线、免费、秒级,好过每次会话开始时的模型调用。写好 scope 键(路径、符号、包名)能显著减少漏配。
 - **匹配只看 scope**:approach 文本不参与打分;命中质量取决于 scope 键的质量。
+- **状态变更以追加记录表达**:`revive` 不重写原行;台账里同一 `id` 可能出现多条记录,读取以最后一条为准。需要人工查看原始历史时直接读 JSONL,`show` / `review` 展示的是解析后的状态。
+- **注入会跳过损坏行**:无法解析或校验失败的行会被跳过并在 stderr 报告,其余墓碑照常注入;`show` / `record` 仍严格报错,方便修复台账。
 - **只接 Claude Code**:hook 安装器只写 Claude Code 的 settings;其他集成是后续版本的事。
-- **review / revive 未实现**:`show` 是当前的查看面;过期墓碑按日期自动停止注入,但状态流转要等 `review` / `revive` 落地。
 
 ## 许可证
 

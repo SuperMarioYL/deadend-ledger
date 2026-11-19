@@ -19,7 +19,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/SuperMarioYL/deadend-ledger.svg)](https://pkg.go.dev/github.com/SuperMarioYL/deadend-ledger)
 [![license](https://img.shields.io/badge/license-MIT-e656af?style=flat-square)](LICENSE)
 
-`v0.1.0` · [Demo record](docs/demo-results.json) · [Ten-minute quickstart](#quickstart)
+`v0.2.0` · [Demo record](docs/demo-results.json) · [Ten-minute quickstart](#quickstart)
 
 ## <img src="https://cdn.jsdelivr.net/npm/@tabler/icons@3.34.1/icons/outline/flag-x.svg" height="18" alt=""> Why
 
@@ -101,6 +101,19 @@ git add .deadend/ledger.jsonl .claude/settings.json
 git commit -m "record dead ends: client-side token refresh"
 ```
 
+**5. Sweep weekly and revive when the condition holds**:
+
+```bash
+deadend review
+# 3 tombstone(s): 2 injecting, 1 past due, 0 expired, 0 revived
+# #3 [2a8b91d0] active · 35 days old · injecting
+
+deadend revive 2a8b91d0 --revive-when "the auth backend now accepts idempotent refresh"
+# tombstone #3 (2a8b91d0) revived — it stops injecting; revive when: ...
+```
+
+`revive` never rewrites the original line: it appends a status-transition record, so the ledger stays append-only. If the same approach fails again after a revive, recording it re-arms the same tombstone (same ordinal).
+
 ## Recorded demo
 
 <picture>
@@ -150,8 +163,8 @@ Terminal recording (the GIF is rendered by [docs/demo.tape](docs/demo.tape) driv
 | `deadend record` | Record one tombstone; full flag surface, interactive prompts in a terminal | v0.1 |
 | `deadend show` | Render every tombstone with its evidence locator | v0.1 |
 | `deadend inject` | Read the task context and print the tombstone block on match (hook entry point) | v0.1 |
-| `deadend review` | Sweep the ledger by status, age and evidence | Planned (`show` for now) |
-| `deadend revive <id>` | Lift a tombstone once its revive condition holds | Planned |
+| `deadend review` | Sweep the ledger by status, age, whether it still injects, and evidence | v0.2 |
+| `deadend revive <id>` | Lift a tombstone once its revive condition holds (appends a transition record) | v0.2 |
 
 The injected block has a hard cap of 2400 characters: no matter how many tombstones match, injection can never flood planning context; entries that no longer fit are dropped by score, with a `deadend show` hint.
 
@@ -176,7 +189,9 @@ The injected block has a hard cap of 2400 characters: no matter how many tombsto
 }
 ```
 
-Field semantics: `id` is derived from approach + locator, so recording the same failure twice is refused; `scope` is the matching key; `evidence.locator` must be a machine-checkable command or error span; `status` is `active` / `expired` / `revived`; a past-due `expires_at` stops injection (tombstone rot); `revive_when` names the condition under which the path is worth retrying. The JSONL format is agent-agnostic — Claude Code is simply the first session environment wired up.
+Field semantics: `id` is derived from approach + locator, so recording the same failure twice is refused (except for a revived tombstone, where a recurrence re-arms it); `scope` is the matching key; `evidence.locator` must be a machine-checkable command or error span; `status` is `active` / `expired` / `revived`; a past-due `expires_at` stops injection (tombstone rot); `revive_when` names the condition under which the path is worth retrying.
+
+Status changes are appends too: a complete record carrying `status: revived` follows the original, reads resolve the last record per `id`, and the ordinal stays at that id's first appearance. The ledger therefore remains append-only, committable and text-mergeable; `review` and `inject` use the resolved state, `show` still renders by ordinal. The JSONL format is agent-agnostic — Claude Code is simply the first session environment wired up.
 
 ## How it divides responsibility with prose memory
 
@@ -194,15 +209,15 @@ On one repository the two coexist: memory owns what happened, the ledger owns wh
 
 ## <img src="https://cdn.jsdelivr.net/npm/@tabler/icons@3.34.1/icons/outline/coin.svg" height="18" alt=""> Pricing
 
-v0.1 is an open-source CLI that runs locally; a single-player failure ledger costs nothing to use. The next layer of the problem is the team: **a ledger only one developer can see only fixes one developer's memory** — tombstones rot unreviewed, there is no cross-repo view, and nothing stops another pull request from re-walking a known dead end.
+The open-source CLI runs locally; a single-player failure ledger costs nothing to use. The next layer of the problem is the team: **a ledger only one developer can see only fixes one developer's memory** — tombstones rot unreviewed, there is no cross-repo view, and nothing stops another pull request from re-walking a known dead end.
 
-The commercial direction is therefore a **hosted team tier** (to launch after the open-source CLI is validated; nothing server-side ships in this repository's v0.1):
+The commercial direction is therefore a **hosted team tier** (to launch after the open-source CLI is validated; nothing server-side ships in this repository):
 
-| | Open-source CLI (v0.1) | Hosted team tier (planned) |
+| | Open-source CLI (v0.2) | Hosted team tier (planned) |
 | --- | --- | --- |
 | Shape | Local binary + in-repo JSONL | Hosted service |
 | Scope | One repo, one developer | Cross-repo tombstone sync |
-| Review | `deadend show` | Review / revive queue |
+| Review | `deadend review` / `deadend revive` | Cross-repo review / revive queue |
 | CI | — | Automatic comments when a PR re-attempts an active tombstone |
 
 Pricing: $19/seat/month, free for up to 3 seats, 2 months free annually; billing through Stripe globally, with self-serve channels for China to follow.
@@ -212,15 +227,16 @@ If your team (3–10 people, several shared repos, daily Claude Code) wants the 
 ## Roadmap
 
 - **v0.1 (shipped)**: tombstone recording, schema validation, append-only ledger, deterministic matching, injection rendering, the Claude Code hook installer.
-- **Next**: `review` / `revive` status transitions (expiry sweeps, revive-condition checks) to complete the tombstone lifecycle.
+- **v0.2 (current)**: the `review` / `revive` lifecycle (status, age, revive conditions), appended status transitions, and re-arming after a revive; plus three ledger-safety fixes (append onto a file without a trailing newline, quoted/state-dir defaults in the scope suggestion, and injection failing on one corrupt line).
 - **Later**: more agent integrations (the ledger format is agent-agnostic — Cursor, Codex and other session environments are welcome), and the hosted team tier (see [Pricing](#pricing)).
 
 ## Limitations
 
 - **Deterministic matching misses**: when task wording drifts far from the scope keys, the tombstone does not inject. Deliberate: instant, offline and free beats a model call at every session start. Drift-resistant scope keys (paths, symbols, package names) reduce misses sharply.
 - **Matching reads scope only**: the approach wording does not participate in scoring; match quality depends on scope-key quality.
+- **Status changes are appended records**: `revive` never rewrites the original line; the ledger may hold several records for one `id` and reads use the last one. Read the JSONL directly for raw history; `show` and `review` display the resolved state.
+- **Injection skips corrupt lines**: records that fail to parse or validate are skipped and reported on stderr so every readable tombstone still applies; `show` and `record` stay strict so the ledger can be repaired.
 - **Claude Code only**: the hook installer writes Claude Code settings; other integrations are a later version.
-- **Review / revive are not implemented yet**: `show` is the current review surface; past-due tombstones already stop injecting by date, but status transitions land with `review` / `revive`.
 
 ## License
 

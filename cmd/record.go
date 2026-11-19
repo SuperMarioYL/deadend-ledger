@@ -133,12 +133,22 @@ func runRecord(cmd *cobra.Command, args []string) error {
 	printSummary(cmd.OutOrStdout(), ts)
 	if interactive {
 		if !prompt.confirm("Record this tombstone?") {
-			fmt.Println("aborted — nothing written")
+			fmt.Fprintln(cmd.OutOrStdout(), "aborted — nothing written")
 			return nil
 		}
 	}
 
 	store := ledger.Open(repo)
+	existing, err := store.Load()
+	if err != nil {
+		return err
+	}
+	rearmed := false
+	for _, e := range existing {
+		if e.Tombstone.ID == ts.ID && e.Tombstone.Status == ledger.StatusRevived {
+			rearmed = true
+		}
+	}
 	if err := store.Append(&ts); err != nil {
 		return err
 	}
@@ -146,7 +156,21 @@ func runRecord(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("tombstone #%d recorded (%s) — the next matching session starts with it\n", len(entries), ts.ID)
+	ordinal := 0
+	for _, e := range entries {
+		if e.Tombstone.ID == ts.ID {
+			ordinal = e.Ordinal
+			break
+		}
+	}
+	if ordinal == 0 {
+		return fmt.Errorf("tombstone %s is missing after the append", ts.ID)
+	}
+	verb := "recorded"
+	if rearmed {
+		verb = "re-armed"
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "tombstone #%d %s (%s) — the next matching session starts with it\n", ordinal, verb, ts.ID)
 	return nil
 }
 
@@ -301,28 +325,48 @@ func cleanScope(in []string) []string {
 // suggestScope offers the files changed in this repo as the default matching
 // key; outside a git repo or on a clean tree it returns nothing.
 func suggestScope(repo string) []string {
-	out, err := runGit(repo, "status", "--porcelain")
-	if err != nil || strings.TrimSpace(out) == "" {
+	out, err := runGit(repo, "status", "--porcelain", "-z")
+	if err != nil {
 		return nil
 	}
+	return parseStatusPaths(out)
+}
+
+// maxSuggestedScope caps how many paths the interactive default offers.
+const maxSuggestedScope = 8
+
+// parseStatusPaths turns NUL-separated `git status --porcelain -z` output into
+// scope keys. -z keeps paths unquoted and unescaped, so a non-ASCII filename
+// stays the real path instead of git's C-quoted octal escape. Rename and copy
+// records carry the destination path first, then the source path as the next
+// NUL record. The tool's own .deadend/ and .claude/ state are never a matching
+// key, and deadend init creates both, so they are skipped.
+func parseStatusPaths(out string) []string {
 	var files []string
-	for _, line := range strings.Split(out, "\n") {
-		if len(line) < 4 {
+	records := strings.Split(out, "\x00")
+	for i := 0; i < len(records) && len(files) < maxSuggestedScope; i++ {
+		rec := records[i]
+		if len(rec) < 4 {
 			continue
 		}
-		path := strings.TrimSpace(line[3:])
-		path = strings.Trim(path, "\"")
-		if i := strings.Index(path, " -> "); i >= 0 {
-			path = path[i+4:]
+		status, path := rec[:2], rec[3:]
+		if status[0] == 'R' || status[0] == 'C' {
+			i++ // the next record is the pre-rename source; keep the destination
+		}
+		if ignoredScopePath(path) {
+			continue
 		}
 		if path != "" {
 			files = append(files, path)
 		}
-		if len(files) >= 8 {
-			break
-		}
 	}
 	return files
+}
+
+func ignoredScopePath(path string) bool {
+	path = strings.TrimSuffix(path, "/")
+	return path == ".deadend" || path == ".claude" ||
+		strings.HasPrefix(path, ".deadend/") || strings.HasPrefix(path, ".claude/")
 }
 
 func runGit(dir string, args ...string) (string, error) {

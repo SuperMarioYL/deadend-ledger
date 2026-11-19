@@ -185,3 +185,187 @@ func TestValidateRevivedRequiresCondition(t *testing.T) {
 		t.Fatalf("revived with condition should validate: %v", err)
 	}
 }
+
+func TestAppendAfterUnterminatedLastLine(t *testing.T) {
+	dir := t.TempDir()
+	s := Open(dir)
+	if _, err := s.Init(); err != nil {
+		t.Fatal(err)
+	}
+	first := validTombstone("first approach", "one")
+	if err := s.Append(&first); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(s.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(raw) == 0 || raw[len(raw)-1] != '\n' {
+		t.Fatal("test setup: a complete append ends with a newline")
+	}
+	// Simulate a hand-edited or merge-repaired ledger whose last record lost
+	// its trailing newline.
+	if err := os.WriteFile(s.Path(), raw[:len(raw)-1], 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	second := validTombstone("second approach", "two")
+	if err := s.Append(&second); err != nil {
+		t.Fatalf("append onto an unterminated tail: %v", err)
+	}
+	entries, err := s.Load()
+	if err != nil {
+		t.Fatalf("ledger must load after the append: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("loaded %d entries, want 2 (the append must not merge records)", len(entries))
+	}
+}
+
+func TestLoadBestEffortSkipsCorruptLine(t *testing.T) {
+	dir := t.TempDir()
+	s := Open(dir)
+	if _, err := s.Init(); err != nil {
+		t.Fatal(err)
+	}
+	good := validTombstone("a good record", "go test ./...")
+	if err := s.Append(&good); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.OpenFile(s.Path(), os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString("{\"id\":\"broken\"\n"); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	entries, skipped := s.LoadBestEffort()
+	if len(entries) != 1 {
+		t.Fatalf("best-effort load returned %d entries, want the 1 readable record", len(entries))
+	}
+	if len(skipped) != 1 || !strings.Contains(skipped[0].Error(), "line 2") {
+		t.Fatalf("skipped = %v, want one error naming line 2", skipped)
+	}
+	if _, err := s.Load(); err == nil {
+		t.Fatal("strict Load must still reject the corrupt line")
+	}
+}
+
+func TestReviveAppendsTransition(t *testing.T) {
+	dir := t.TempDir()
+	s := Open(dir)
+	if _, err := s.Init(); err != nil {
+		t.Fatal(err)
+	}
+	ts := validTombstone("use client-side token refresh", "go test ./internal/auth")
+	ts.ReviveWhen = "the auth backend accepts idempotent refresh"
+	if err := s.Append(&ts); err != nil {
+		t.Fatal(err)
+	}
+
+	entry, err := s.Revive(ts.ID, "")
+	if err != nil {
+		t.Fatalf("Revive: %v", err)
+	}
+	if entry.Tombstone.Status != StatusRevived {
+		t.Fatalf("revived entry status = %q", entry.Tombstone.Status)
+	}
+	if entry.Ordinal != 1 {
+		t.Fatalf("revived entry ordinal = %d, want the first-seen 1", entry.Ordinal)
+	}
+
+	entries, err := s.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("Load resolved %d entries, want 1 tombstone", len(entries))
+	}
+	if entries[0].Tombstone.Status != StatusRevived {
+		t.Fatalf("resolved status = %q, want revived (last record wins)", entries[0].Tombstone.Status)
+	}
+	if entries[0].Tombstone.LiveOn(time.Now()) {
+		t.Fatal("a revived tombstone must not inject")
+	}
+
+	raw, err := os.ReadFile(s.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("ledger has %d lines, want the original plus one appended transition", len(lines))
+	}
+	if !strings.Contains(lines[0], `"status":"active"`) {
+		t.Fatal("the original record must stay untouched")
+	}
+	if !strings.Contains(lines[1], `"status":"revived"`) {
+		t.Fatal("the transition record must carry the revived status")
+	}
+}
+
+func TestAppendRearmsRevived(t *testing.T) {
+	dir := t.TempDir()
+	s := Open(dir)
+	if _, err := s.Init(); err != nil {
+		t.Fatal(err)
+	}
+	ts := validTombstone("use client-side token refresh", "go test ./internal/auth")
+	ts.ReviveWhen = "the auth backend accepts idempotent refresh"
+	if err := s.Append(&ts); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Revive(ts.ID, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	// The same failure recurred after the revive: recording it must re-arm the
+	// same tombstone instead of being rejected as a duplicate.
+	again := validTombstone("use client-side token refresh", "go test ./internal/auth")
+	if err := s.Append(&again); err != nil {
+		t.Fatalf("re-record after revive: %v", err)
+	}
+	entries, err := s.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Ordinal != 1 {
+		t.Fatalf("want one tombstone at ordinal 1, got %+v", entries)
+	}
+	if entries[0].Tombstone.Status != StatusActive {
+		t.Fatalf("re-armed status = %q, want active", entries[0].Tombstone.Status)
+	}
+
+	// While active, an exact duplicate is still refused.
+	dup := validTombstone("use client-side token refresh", "go test ./internal/auth")
+	if err := s.Append(&dup); err == nil {
+		t.Fatal("an active tombstone must still reject the same approach and locator")
+	}
+}
+
+func TestReviveRequiresCondition(t *testing.T) {
+	dir := t.TempDir()
+	s := Open(dir)
+	if _, err := s.Init(); err != nil {
+		t.Fatal(err)
+	}
+	ts := validTombstone("use client-side token refresh", "go test ./internal/auth")
+	if err := s.Append(&ts); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := s.Revive(ts.ID, ""); err == nil || !strings.Contains(err.Error(), "condition") {
+		t.Fatalf("revive without any condition must explain itself, got %v", err)
+	}
+	if _, err := s.Revive("deadbeef", "now holds"); err == nil {
+		t.Fatal("reviving an unknown id must fail")
+	}
+	if _, err := s.Revive(ts.ID, "the auth backend now accepts idempotent refresh"); err != nil {
+		t.Fatalf("revive with a condition: %v", err)
+	}
+	if _, err := s.Revive(ts.ID, "again"); err == nil {
+		t.Fatal("reviving twice must fail")
+	}
+}

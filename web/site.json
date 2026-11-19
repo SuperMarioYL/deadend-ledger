@@ -10,9 +10,10 @@
   },
   "meta": {
     "visual_profile": "neon-particle",
-    "content_version": "0.1.0",
+    "content_version": "0.2.0",
     "demo_source": "docs/demo-results.json",
-    "source_version": "v0.1.0"
+    "source_version": "v0.2.0",
+    "generated_at": "2026-11-20"
   },
   "hero": {
     "eyebrow": {
@@ -74,8 +75,8 @@
         "en": "Negative results only"
       },
       "body": {
-        "zh": "台账只收失败方案:没有事实、偏好和散文记忆。墓碑可以设置过期与复活条件,过期即停止注入。",
-        "en": "The ledger holds failed approaches only — no facts, no preferences, no prose memory. Tombstones can expire and name a revive condition; past-due ones stop injecting."
+        "zh": "台账只收失败方案:没有事实、偏好和散文记忆。墓碑可以设置过期与复活条件,过期即停止注入;review 巡检台账,revive 在条件成立时解除。",
+        "en": "The ledger holds failed approaches only — no facts, no preferences, no prose memory. Tombstones can expire and name a revive condition; review sweeps the ledger and revive lifts one when its condition holds."
       }
     }
   ],
@@ -137,12 +138,12 @@
       },
       {
         "title": {
-          "zh": "边界:v0.1 只做这一件事",
-          "en": "Scope: v0.1 does one thing"
+          "zh": "边界:只做这一件事",
+          "en": "Scope: one job, done properly"
         },
         "body": {
-          "zh": "只记负面结果,只接 Claude Code,只用 JSONL 台账,匹配不用 embedding。确定性匹配会因措辞漂移而漏配 —— 这是刻意选择:离线、免费、秒级,宁可漏配也不在每次会话开始时调用模型。",
-          "en": "Negative results only, Claude Code only, JSONL only, no embeddings. Deterministic matching misses on wording drift — deliberately: instant, offline and free beats a model call at every session start."
+          "zh": "只记负面结果,只接 Claude Code,只用 JSONL 台账,匹配不用 embedding。v0.2 补齐 review / revive 生命周期,状态变更以追加记录表达 —— 台账始终 append-only。确定性匹配会因措辞漂移而漏配 —— 这是刻意选择:离线、免费、秒级,宁可漏配也不在每次会话开始时调用模型。",
+          "en": "Negative results only, Claude Code only, JSONL only, no embeddings. v0.2 completes the review / revive lifecycle, and status changes are appended records, so the ledger stays append-only. Deterministic matching misses on wording drift — deliberately: instant, offline and free beats a model call at every session start."
         },
         "image": {
           "light": "/assets/presentation/integrations-light.svg",
@@ -307,6 +308,13 @@
           "en": "Verify injection"
         },
         "code": "deadend inject --context \"try the client-side token refresh again\"\ndeadend inject --context \"unrelated task\" | wc -c   # 0"
+      },
+      {
+        "title": {
+          "zh": "巡检与复活",
+          "en": "Review and revive"
+        },
+        "code": "deadend review\ndeadend revive <id> --revive-when \"the condition now holds\""
       }
     ]
   },
@@ -316,8 +324,8 @@
       "en": "Deterministic matching misses: if task wording drifts far from the scope keys, the tombstone does not inject. Deliberate trade-off — an instant offline miss instead of a model call at every session start."
     },
     {
-      "zh": "v0.1 只接 Claude Code(SessionStart/UserPromptSubmit hook);JSONL 台账格式与具体 agent 无关,其他集成属后续版本。review/revive 的状态流转尚未实现,deadend show 是当前的查看面。",
-      "en": "v0.1 integrates Claude Code only (SessionStart/UserPromptSubmit hooks); the JSONL ledger format is agent-agnostic, other integrations are post-v0.1. Review/revive status transitions are not implemented yet; deadend show is the current review surface."
+      "zh": "只接 Claude Code(SessionStart/UserPromptSubmit hook);JSONL 台账格式与具体 agent 无关,其他集成属后续版本。review / revive 已在 v0.2 落地:revive 追加状态变更记录,读取以同一 id 的最后一条为准;注入会跳过无法解析的行并在 stderr 报告。",
+      "en": "Claude Code only (SessionStart/UserPromptSubmit hooks); the JSONL ledger format is agent-agnostic and other integrations are later versions. Review/revive ship in v0.2: revive appends a status-transition record and reads resolve the last record per id; injection skips unreadable lines and reports them on stderr."
     },
     {
       "zh": "匹配只看 scope token,不读墓碑的 approach 文本;scope 建议用路径、符号、包名这类漂移小的键,而不是自由措辞。",
@@ -325,6 +333,6 @@
     }
   ],
   "footer": {
-    "tag": "0.1.0 · Go 1.24 · MIT"
+    "tag": "0.2.0 · Go 1.24 · MIT"
   }
 }

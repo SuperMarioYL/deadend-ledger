@@ -15,8 +15,8 @@ var showCmd = &cobra.Command{
 	Use:   "show",
 	Short: "Render every tombstone in the ledger with its evidence",
 	Long: `Lists all tombstones with status, scope and the machine-checkable
-evidence locator. This is the v0.1 review surface; status transitions
-(expire/revive) ship with the review/revive milestone.`,
+evidence locator. Use deadend review for the age-and-status sweep and
+deadend revive to lift a tombstone whose revive condition now holds.`,
 	RunE: runShow,
 }
 
